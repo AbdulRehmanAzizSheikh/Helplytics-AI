@@ -10,7 +10,7 @@ export default function Auth() {
     e.preventDefault();
     if(name) {
       localStorage.setItem('user', JSON.stringify({ name, role }));
-      navigate('/explore');
+      navigate('/onboarding');
     }
   };
 
