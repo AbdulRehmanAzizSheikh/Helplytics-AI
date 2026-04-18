@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,23 +17,45 @@ export default function Auth() {
     setError('');
     setLoading(true);
     try {
-      const endpoint = isLogin ? `${API}/users/login` : `${API}/users/register`;
-      const body = isLogin ? { email, password } : { username, email, password, role };
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (!isLogin || !data.user.onboarded) {
-        navigate('/onboarding');
+      let result;
+      if (isLogin) {
+        result = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
       } else {
-        navigate('/dashboard');
+        result = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username,
+              role,
+            },
+          },
+        });
       }
-      window.location.reload();
+
+      const { data, error: authError } = result;
+      if (authError) throw authError;
+
+      if (data.user) {
+        // Fetch profile to check onboarding
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        localStorage.setItem('user', JSON.stringify({ ...data.user, ...profile }));
+        
+        if (!isLogin || (profile && !profile.onboarded)) {
+          navigate('/onboarding');
+        } else {
+          navigate('/dashboard');
+        }
+        window.location.reload();
+      }
     } catch (err) {
       setError(err.message);
     } finally {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -8,8 +8,45 @@ export default function Dashboard() {
   const [requests, setRequests] = useState([]);
 
   useEffect(() => {
-    fetch(`${API}/requests/ai-insights`).then(r => r.json()).then(setInsights).catch(console.error);
-    fetch(`${API}/requests?status=Open`).then(r => r.json()).then(d => setRequests(d.slice(0, 5))).catch(console.error);
+    const fetchData = async () => {
+      try {
+        // Fetch global stats for dashboard
+        const { count: totalRequests } = await supabase.from('requests').select('*', { count: 'exact', head: true });
+        const { count: highUrgency } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('urgency', 'High');
+        const { count: solvedRequests } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'Solved');
+        const { count: totalHelpers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+
+        // Calculate top category (simple client-side for now)
+        const { data: catData } = await supabase.from('requests').select('category');
+        const counts = catData?.reduce((acc, curr) => {
+          acc[curr.category] = (acc[curr.category] || 0) + 1;
+          return acc;
+        }, {}) || {};
+        const topCat = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'General');
+
+        setInsights({
+          totalRequests,
+          highUrgency,
+          solvedRequests,
+          totalHelpers,
+          topCategory: topCat
+        });
+
+        // Fetch recent open requests
+        const { data: recentRequests } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('status', 'Open')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        setRequests(recentRequests || []);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      }
+    };
+
+    fetchData();
   }, []);
 
   return (
@@ -49,13 +86,13 @@ export default function Dashboard() {
           <div className="d-flex flex-col gap-3">
             {requests.length === 0 && <p>No open requests yet.</p>}
             {requests.map(r => (
-              <div key={r._id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: '#F9FAFB', border: '1px solid var(--border)' }}>
+              <div key={r.id} style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: '#F9FAFB', border: '1px solid var(--border)' }}>
                 <div className="d-flex align-center gap-2 mb-2">
                   <span className="tag">{r.category}</span>
                   <span className={`tag tag-${r.urgency.toLowerCase()}`}>{r.urgency}</span>
                 </div>
-                <Link to={`/request/${r._id}`} style={{ fontWeight: 600, textDecoration: 'none', color: 'var(--text)' }}>{r.title}</Link>
-                <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>{r.authorName}</p>
+                <Link to={`/request/${r.id}`} style={{ fontWeight: 600, textDecoration: 'none', color: 'var(--text)' }}>{r.title}</Link>
+                <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>{r.author_name}</p>
               </div>
             ))}
           </div>

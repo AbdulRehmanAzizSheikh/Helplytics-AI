@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Explore() {
   const [requests, setRequests] = useState([]);
@@ -9,13 +9,22 @@ export default function Explore() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (category !== 'All') params.append('category', category);
-    if (urgency !== 'All') params.append('urgency', urgency);
-    fetch(`${API}/requests?${params.toString()}`)
-      .then(r => r.json())
-      .then(setRequests)
-      .catch(console.error);
+    const fetchRequests = async () => {
+      try {
+        let query = supabase.from('requests').select('*');
+        
+        if (category !== 'All') query = query.eq('category', category);
+        if (urgency !== 'All') query = query.eq('urgency', urgency);
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        setRequests(data || []);
+      } catch (err) {
+        console.error('Error fetching requests:', err);
+      }
+    };
+
+    fetchRequests();
   }, [category, urgency]);
 
   const filtered = requests.filter(r =>
@@ -66,7 +75,7 @@ export default function Explore() {
         <div className="d-flex flex-col gap-4">
           {filtered.length === 0 && <div className="card text-center"><p>No requests found. Try changing the filters or create a new request!</p></div>}
           {filtered.map(req => (
-            <div key={req._id} className="card">
+            <div key={req.id} className="card">
               <div className="d-flex align-center gap-2 mb-2">
                 <span className="tag">{req.category}</span>
                 <span className={`tag tag-${req.urgency.toLowerCase()}`}>{req.urgency}</span>
@@ -78,8 +87,8 @@ export default function Explore() {
                 {req.tags?.map(t => <span key={t} className="tag">{t}</span>)}
               </div>
               <div className="d-flex justify-between align-center" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{req.authorName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>• {req.helpers?.length || 0} helper interested</span></span>
-                <Link to={`/request/${req._id}`} className="btn btn-secondary btn-sm">Open details</Link>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{req.author_name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>• Interested</span></span>
+                <Link to={`/request/${req.id}`} className="btn btn-secondary btn-sm">Open details</Link>
               </div>
             </div>
           ))}

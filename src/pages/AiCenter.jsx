@@ -1,11 +1,51 @@
 import { useState, useEffect } from 'react';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function AiCenter() {
   const [insights, setInsights] = useState(null);
 
   useEffect(() => {
-    fetch(`${API}/requests/ai-insights`).then(r => r.json()).then(setInsights).catch(console.error);
+    const fetchInsights = async () => {
+      try {
+        // 1. Get all requests to calculate top category
+        const { data: requests } = await supabase.from('requests').select('category');
+        const counts = requests?.reduce((acc, curr) => {
+          acc[curr.category] = (acc[curr.category] || 0) + 1;
+          return acc;
+        }, {}) || {};
+        const topCat = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'General');
+
+        // 2. Count high urgency requests
+        const { count: highUrgencyCount } = await supabase
+          .from('requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('urgency', 'High');
+
+        // 3. Count total users (helpers)
+        const { count: helpersCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        // 4. Get active recommendations
+        const { data: recs } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('status', 'Open')
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        setInsights({
+          topCategory: topCat,
+          highUrgency: highUrgencyCount,
+          totalHelpers: helpersCount,
+          recommendations: recs
+        });
+      } catch (err) {
+        console.error('Error fetching AI insights:', err);
+      }
+    };
+
+    fetchInsights();
   }, []);
 
   return (
@@ -40,9 +80,9 @@ export default function AiCenter() {
         <div className="d-flex flex-col gap-3">
           {insights?.recommendations?.length === 0 && <p>No open requests to recommend.</p>}
           {insights?.recommendations?.map(r => (
-            <div key={r._id} className="card card-flat" style={{ background: 'white' }}>
+            <div key={r.id} className="card card-flat" style={{ background: 'white' }}>
               <h3 style={{ marginBottom: '0.4rem' }}>{r.title}</h3>
-              <p style={{ marginBottom: '0.75rem' }}>{r.aiSummary || r.description?.substring(0, 120)}</p>
+              <p style={{ marginBottom: '0.75rem' }}>{r.ai_summary || r.description?.substring(0, 120)}</p>
               <div className="d-flex gap-2">
                 <span className="tag">{r.category}</span>
                 <span className={`tag tag-${r.urgency.toLowerCase()}`}>{r.urgency}</span>
