@@ -1,73 +1,94 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import API from '../api';
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || { name: '', role: 'Both' });
-  const [skills, setSkills] = useState("");
-  const [interests, setInterests] = useState("");
-  const [location, setLocation] = useState("");
+  const user = JSON.parse(localStorage.getItem('user'));
+  const [skills, setSkills] = useState('');
+  const [interests, setInterests] = useState('');
+  const [location, setLocation] = useState('');
   const [suggestions, setSuggestions] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const getAiSuggestion = () => {
-    // Dummy AI Logic
-    setSuggestions({
-      helpWith: "React Context API, Basic Layouts, Debugging",
-      needHelp: "Advanced Node.js, Deployment, Database Design"
-    });
+  if (!user) { navigate('/auth'); return null; }
+
+  const getAiSuggestion = async () => {
+    try {
+      const res = await fetch(`${API}/users/ai-suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skills: skills.split(',').map(s => s.trim()),
+          interests: interests.split(',').map(s => s.trim()),
+        }),
+      });
+      const data = await res.json();
+      setSuggestions(data);
+    } catch (e) { console.error(e); }
   };
 
-  const saveProfile = (e) => {
+  const saveProfile = async (e) => {
     e.preventDefault();
-    const updatedUser = { ...user, skills, interests, location, onboarded: true };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    navigate('/dashboard');
-  }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/users/${user._id}/onboard`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skills: skills.split(',').map(s => s.trim()),
+          interests: interests.split(',').map(s => s.trim()),
+          location,
+        }),
+      });
+      const data = await res.json();
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/dashboard');
+      window.location.reload();
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
 
   return (
-    <div className="grid-2" style={{ gap: '2rem' }}>
-      <div className="dark-section d-flex flex-column" style={{ justifyContent: 'center' }}>
-        <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1rem', color: '#94a3b8' }}>
-          ONBOARDING
-        </p>
+    <div className="grid-2 fade-in" style={{ gap: '2.5rem' }}>
+      <div className="hero-dark d-flex flex-col justify-center">
+        <span className="section-label section-label-light">ONBOARDING</span>
         <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>Build your reputation profile.</h1>
-        <p>Let the community know what you can do and what you want to learn. Our AI will automatically suggest connections.</p>
+        <p>Let the community know what you can do and what you want to learn. Our AI will suggest where you can help and where you might need support.</p>
       </div>
-      <div>
-        <div className="card">
-          <form onSubmit={saveProfile}>
-            <div className="form-group">
-              <label>Name</label>
-              <input type="text" className="form-control" value={user.name} onChange={e => setUser({...user, name: e.target.value})} required />
-            </div>
-            <div className="form-group">
-              <label>My Skills (Comma separated)</label>
-              <textarea className="form-control" style={{ minHeight: '80px' }} value={skills} onChange={e => setSkills(e.target.value)} required></textarea>
-            </div>
-            <div className="form-group">
-              <label>Learning Interests</label>
-              <textarea className="form-control" style={{ minHeight: '80px' }} value={interests} onChange={e => setInterests(e.target.value)} required></textarea>
-            </div>
-            <div className="form-group">
-              <label>Location</label>
-              <input type="text" className="form-control" value={location} onChange={e => setLocation(e.target.value)} required />
-            </div>
-            
-            <button type="button" className="btn btn-secondary w-full mb-6 d-flex justify-center gap-2" onClick={getAiSuggestion}>
-              <Sparkles size={16} color="var(--primary)" /> Let AI Suggest Connections
-            </button>
+      <div className="card">
+        <form onSubmit={saveProfile}>
+          <div className="form-group">
+            <label>Name</label>
+            <input type="text" className="form-control" value={user.username} readOnly />
+          </div>
+          <div className="form-group">
+            <label>Skills (comma separated)</label>
+            <input type="text" className="form-control" value={skills} onChange={e => setSkills(e.target.value)} placeholder="React, Figma, Node.js" required />
+          </div>
+          <div className="form-group">
+            <label>Interests</label>
+            <input type="text" className="form-control" value={interests} onChange={e => setInterests(e.target.value)} placeholder="UI/UX, Backend, Data Science" required />
+          </div>
+          <div className="form-group">
+            <label>Location</label>
+            <input type="text" className="form-control" value={location} onChange={e => setLocation(e.target.value)} placeholder="Karachi" required />
+          </div>
 
-            {suggestions && (
-              <div className="ai-box mb-6">
-                <p><strong>You could help others with:</strong> {suggestions.helpWith}</p>
-                <p style={{ marginTop: '0.5rem' }}><strong>You might need help with:</strong> {suggestions.needHelp}</p>
-              </div>
-            )}
+          <button type="button" className="btn btn-secondary w-full mb-4" onClick={getAiSuggestion}>✨ Get AI Skill Suggestions</button>
 
-            <button type="submit" className="btn btn-primary w-full">Complete Profile</button>
-          </form>
-        </div>
+          {suggestions && (
+            <div className="ai-box mb-4">
+              <span className="section-label">AI SUGGESTIONS</span>
+              <p style={{ color: 'var(--text)' }}><strong>You can help with:</strong> {suggestions.canHelpWith?.join(', ')}</p>
+              <p style={{ color: 'var(--text)', marginTop: '0.5rem' }}><strong>You may need help with:</strong> {suggestions.mayNeedHelp?.join(', ')}</p>
+            </div>
+          )}
+
+          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+            {loading ? 'Saving...' : 'Complete Onboarding'}
+          </button>
+        </form>
       </div>
     </div>
   );

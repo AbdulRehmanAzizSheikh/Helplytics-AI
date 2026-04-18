@@ -1,49 +1,59 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import API from '../api';
 
 export default function Explore() {
   const [requests, setRequests] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState('All');
-  const [urgencyFilter, setUrgencyFilter] = useState('All');
+  const [category, setCategory] = useState('All');
+  const [urgency, setUrgency] = useState('All');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/requests')
+    const params = new URLSearchParams();
+    if (category !== 'All') params.append('category', category);
+    if (urgency !== 'All') params.append('urgency', urgency);
+    fetch(`${API}/requests?${params.toString()}`)
       .then(r => r.json())
-      .then(data => setRequests(data))
-      .catch(e => console.error(e));
-  }, []);
+      .then(setRequests)
+      .catch(console.error);
+  }, [category, urgency]);
 
-  const filtered = requests.filter(r => {
-    if (categoryFilter !== 'All' && r.category !== categoryFilter) return false;
-    if (urgencyFilter !== 'All' && r.urgency !== urgencyFilter) return false;
-    return true;
-  });
+  const filtered = requests.filter(r =>
+    r.title.toLowerCase().includes(search.toLowerCase()) ||
+    r.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
-    <div>
-      <div className="dark-section" style={{ padding: '2.5rem', marginBottom: '2rem' }}>
-        <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1rem' }}>
-          EXPLORE / FEED
-        </p>
+    <div className="fade-in">
+      <div className="hero-dark">
+        <span className="section-label section-label-light">EXPLORE / FEED</span>
         <h1 style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>Browse help requests with filterable community context.</h1>
         <p>Filter by category, urgency, skills, and location to surface the best matches.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
-        <div className="card" style={{ alignSelf: 'start' }}>
-          <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem' }}>Refine the feed</h3>
+      <div className="sidebar-layout">
+        {/* Filters */}
+        <div className="card" style={{ alignSelf: 'start', position: 'sticky', top: '1rem' }}>
+          <span className="section-label">FILTERS</span>
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem' }}>Refine the feed</h2>
+          <div className="form-group">
+            <label>Search</label>
+            <input type="text" className="form-control" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by title or tag..." />
+          </div>
           <div className="form-group">
             <label>Category</label>
-            <select className="form-control" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}>
+            <select className="form-control" value={category} onChange={e => setCategory(e.target.value)}>
               <option>All</option>
               <option>Web Development</option>
               <option>Design</option>
               <option>Career</option>
+              <option>Backend</option>
+              <option>General</option>
             </select>
           </div>
           <div className="form-group">
             <label>Urgency</label>
-            <select className="form-control" value={urgencyFilter} onChange={e=>setUrgencyFilter(e.target.value)}>
+            <select className="form-control" value={urgency} onChange={e => setUrgency(e.target.value)}>
               <option>All</option>
               <option>Low</option>
               <option>Medium</option>
@@ -52,28 +62,24 @@ export default function Explore() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {filtered.length === 0 ? <p>No requests found.</p> : null}
+        {/* Feed */}
+        <div className="d-flex flex-col gap-4">
+          {filtered.length === 0 && <div className="card text-center"><p>No requests found. Try changing the filters or create a new request!</p></div>}
           {filtered.map(req => (
-            <div key={req._id} className="card d-flex flex-column" style={{ padding: '1.5rem', gap: '1rem' }}>
-              <div className="d-flex align-center gap-2">
-                <span className="tag" style={{ background: '#e0f2fe', color: '#0369a1' }}>{req.category}</span>
-                <span className={`tag ${req.urgency.toLowerCase()}`}>{req.urgency}</span>
-                {req.status === 'Solved' && <span className="tag solved">Solved</span>}
+            <div key={req._id} className="card">
+              <div className="d-flex align-center gap-2 mb-2">
+                <span className="tag">{req.category}</span>
+                <span className={`tag tag-${req.urgency.toLowerCase()}`}>{req.urgency}</span>
+                <span className={`tag ${req.status === 'Solved' ? 'tag-solved' : 'tag-open'}`}>{req.status}</span>
               </div>
-              
-              <h3 style={{ fontSize: '1.2rem', margin: 0 }}>{req.title}</h3>
-              <p style={{ margin: 0, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                {req.description}
-              </p>
-              
-              <div className="d-flex gap-2">
-                {req.tags.map(t => <span key={t} className="tag">{t}</span>)}
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.4rem' }}>{req.title}</h3>
+              <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.75rem' }}>{req.description}</p>
+              <div className="d-flex gap-2 flex-wrap mb-4">
+                {req.tags?.map(t => <span key={t} className="tag">{t}</span>)}
               </div>
-              
-              <div className="d-flex justify-between align-center" style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
-                <div style={{ fontWeight: 600 }}>{req.author} <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>• {req.helpers?.length || 0} helper interested</span></div>
-                <Link to={`/request/${req._id}`} className="btn btn-secondary" style={{ borderRadius: '24px', padding: '0.5rem 1rem' }}>Open details</Link>
+              <div className="d-flex justify-between align-center" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{req.authorName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>• {req.helpers?.length || 0} helper interested</span></span>
+                <Link to={`/request/${req._id}`} className="btn btn-secondary btn-sm">Open details</Link>
               </div>
             </div>
           ))}

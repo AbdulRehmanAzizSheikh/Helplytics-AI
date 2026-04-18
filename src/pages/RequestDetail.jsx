@@ -1,99 +1,92 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import API from '../api';
 
 export default function RequestDetail() {
   const { id } = useParams();
+  const user = JSON.parse(localStorage.getItem('user'));
   const [req, setReq] = useState(null);
-  const [currentUser, setCurrentUser] = useState({ name: 'Anonymous' });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if(user) setCurrentUser(user);
-
-    fetch(`http://localhost:5000/api/requests/${id}`)
-      .then(res => res.json())
-      .then(data => setReq(data));
+    fetch(`${API}/requests/${id}`).then(r => r.json()).then(d => { setReq(d); setLoading(false); }).catch(console.error);
   }, [id]);
 
   const handleHelp = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}/help`, {
+      const res = await fetch(`${API}/requests/${id}/help`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: currentUser.name, skills: 'General' })
+        body: JSON.stringify({ userId: user?._id, name: user?.username || 'Anonymous', skills: user?.skills?.join(', ') || 'General' }),
       });
-      if(res.ok) {
-        const data = await res.json();
-        setReq(data);
-      }
-    } catch(e) { console.error(e) }
+      if (res.ok) { const data = await res.json(); setReq(data); }
+    } catch (e) { console.error(e); }
   };
 
   const handleSolve = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}/solve`, {
-        method: 'PATCH'
-      });
-      if(res.ok) {
-        setReq(prev => ({...prev, status: 'Solved'}));
-      }
-    } catch(e) { console.error(e) }
+      const res = await fetch(`${API}/requests/${id}/solve`, { method: 'PATCH' });
+      if (res.ok) { const data = await res.json(); setReq(data); }
+    } catch (e) { console.error(e); }
   };
 
-  if(!req) return <div>Loading...</div>;
+  if (loading) return <div className="text-center mt-6"><p>Loading...</p></div>;
+  if (!req) return <div className="text-center mt-6"><p>Request not found.</p></div>;
 
   return (
-    <div>
-      <div className="dark-section" style={{ padding: '3rem', marginBottom: '2rem' }}>
-        <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1rem', color: '#94a3b8' }}>
-          REQUEST DETAIL
-        </p>
-        <div className="d-flex gap-2" style={{ marginBottom: '1rem' }}>
-            <span className="tag">{req.category}</span>
-            <span className={`tag ${req.urgency.toLowerCase()}`}>{req.urgency}</span>
-            {req.status === 'Solved' && <span className="tag solved">Solved</span>}
+    <div className="fade-in">
+      <div className="hero-dark">
+        <span className="section-label section-label-light">REQUEST DETAIL</span>
+        <div className="d-flex gap-2 mb-4">
+          <span className="tag">{req.category}</span>
+          <span className={`tag tag-${req.urgency.toLowerCase()}`}>{req.urgency}</span>
+          <span className={`tag ${req.status === 'Solved' ? 'tag-solved' : 'tag-open'}`}>{req.status}</span>
         </div>
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>{req.title}</h1>
-        <p style={{ fontSize: '1.1rem', maxWidth: '800px', lineHeight: 1.6 }}>{req.description}</p>
+        <h1 style={{ fontSize: '2.2rem', marginBottom: '0.75rem' }}>{req.title}</h1>
+        <p style={{ maxWidth: '800px', lineHeight: 1.7, fontSize: '1rem' }}>{req.description}</p>
       </div>
 
       <div className="grid-2" style={{ gap: '2rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div className="card ai-box">
-             <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--primary-dark)', marginBottom: '1rem' }}>AI Summary</h3>
-             <p style={{ fontSize: '1rem' }}>This is a {req.urgency} urgency request for {req.category}. Based on context, it seems the user is looking for guidance directly related to {req.tags.join(', ')}.</p>
-             <div className="d-flex gap-2 mt-4">
-                {req.tags.map(t => <span key={t} className="tag">{t}</span>)}
-             </div>
+        <div className="d-flex flex-col gap-4">
+          {/* AI Summary */}
+          <div className="ai-box">
+            <span className="section-label">AI SUMMARY</span>
+            <p style={{ color: 'var(--text)' }}>{req.aiSummary || `This is a ${req.urgency} urgency ${req.category} request.`}</p>
+            <div className="d-flex gap-2 mt-4">
+              {req.tags?.map(t => <span key={t} className="tag">{t}</span>)}
+            </div>
           </div>
+
+          {/* Actions */}
           <div className="card">
-            <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1rem' }}>Actions</h3>
-            <div className="d-flex gap-4">
+            <span className="section-label">ACTIONS</span>
+            <div className="d-flex gap-4 mt-2">
               <button className="btn btn-primary" onClick={handleHelp} disabled={req.status === 'Solved'}>I can help</button>
               <button className="btn btn-secondary" onClick={handleSolve} disabled={req.status === 'Solved'}>Mark as solved</button>
             </div>
           </div>
         </div>
 
+        {/* Helpers */}
         <div>
           <div className="card">
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>People ready to support</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-               {req.helpers?.length === 0 ? <p>No helpers yet.</p> : null}
-               {req.helpers?.map((h, i) => (
-                 <div key={i} className="card" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                   <div className="d-flex align-center gap-4">
-                     <div style={{ background: 'linear-gradient(45deg, #f97316, #fbbf24)', width: '40px', height: '40px', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                       {h.name.substring(0, 2).toUpperCase()}
-                     </div>
-                     <div>
-                       <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>{h.name}</h4>
-                       <p style={{ margin: 0, fontSize: '0.8rem' }}>Trust score building</p>
-                     </div>
-                   </div>
-                   <span className="tag" style={{ background: '#f0fdf4', color: '#16a34a' }}>Trust 100%</span>
-                 </div>
-               ))}
+            <span className="section-label">HELPERS</span>
+            <h2 style={{ fontSize: '1.4rem', marginBottom: '1rem' }}>People ready to support</h2>
+            <div className="d-flex flex-col gap-3">
+              {req.helpers?.length === 0 && <p>No helpers yet. Be the first to offer help!</p>}
+              {req.helpers?.map((h, i) => (
+                <div key={i} className="d-flex align-center justify-between" style={{ padding: '0.75rem', background: '#F9FAFB', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                  <div className="d-flex align-center gap-3">
+                    <div style={{ background: 'linear-gradient(135deg, #f97316, #fbbf24)', width: '40px', height: '40px', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem' }}>
+                      {h.name?.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{h.name}</h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem' }}>{h.skills}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

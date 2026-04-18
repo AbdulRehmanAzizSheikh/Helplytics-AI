@@ -1,69 +1,108 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import API from '../api';
 
 export default function Profile() {
-  const user = JSON.parse(localStorage.getItem('user')) || { name: 'Demo User', skills: 'Figma, UI/UX', interests: 'React, Node', location: 'Karachi' };
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) { navigate('/auth'); return null; }
+
+  const [username, setUsername] = useState(user.username || '');
+  const [skills, setSkills] = useState(user.skills?.join(', ') || '');
+  const [interests, setInterests] = useState(user.interests?.join(', ') || '');
+  const [location, setLocation] = useState(user.location || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/users/${user._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          skills: skills.split(',').map(s => s.trim()),
+          interests: interests.split(',').map(s => s.trim()),
+          location,
+        }),
+      });
+      const data = await res.json();
+      localStorage.setItem('user', JSON.stringify(data.user));
+      alert('Profile updated!');
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/');
+    window.location.reload();
+  };
 
   return (
-    <div>
-      <div className="dark-section" style={{ padding: '2rem', marginBottom: '2rem' }}>
-        <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.5rem', color: '#94a3b8' }}>
-          PROFILE
-        </p>
-        <h1 style={{ fontSize: '2.5rem', margin: 0 }}>{user.name}</h1>
-        <p style={{ color: '#94a3b8', margin: 0, marginTop: '0.5rem' }}>{user.role} • {user.location}</p>
+    <div className="fade-in">
+      <div className="hero-dark">
+        <span className="section-label section-label-light">PROFILE</span>
+        <h1 style={{ fontSize: '2.5rem', margin: 0 }}>{user.username}</h1>
+        <p style={{ margin: 0, marginTop: '0.5rem' }}>{user.role} • {user.location || 'No location set'}</p>
       </div>
 
       <div className="grid-2" style={{ gap: '2rem' }}>
+        {/* Public Profile */}
         <div className="card">
-          <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1rem', color: 'var(--primary)' }}>PUBLIC PROFILE</p>
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '1.5rem' }}>Skills and reputation</h2>
-          
-          <div className="d-flex justify-between" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+          <span className="section-label">PUBLIC PROFILE</span>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Skills and reputation</h2>
+
+          <div className="d-flex justify-between" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
             <span>Trust score</span>
-            <span style={{ fontWeight: 'bold' }}>100%</span>
+            <span style={{ fontWeight: 700 }}>{user.trustScore || 50}%</span>
           </div>
-          <div className="d-flex justify-between" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
+          <div className="progress-bar mb-4">
+            <div className="progress-fill" style={{ width: `${user.trustScore || 50}%` }}></div>
+          </div>
+          <div className="d-flex justify-between mb-6" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
             <span>Contributions</span>
-            <span style={{ fontWeight: 'bold' }}>35</span>
+            <span style={{ fontWeight: 700 }}>{user.contributions || 0}</span>
           </div>
 
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Skills</h3>
-          <div className="d-flex gap-2" style={{ flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-            {(user.skills || 'Empty').split(',').map(s => <span key={s} className="tag" style={{ background: '#f0fdf4', color: '#16a34a' }}>{s.trim()}</span>)}
+          <h3 className="mb-2">Skills</h3>
+          <div className="d-flex gap-2 flex-wrap mb-4">
+            {user.skills?.length > 0 ? user.skills.map(s => <span key={s} className="tag">{s}</span>) : <p>No skills added</p>}
           </div>
 
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Badges</h3>
-          <div className="d-flex gap-2" style={{ flexWrap: 'wrap' }}>
-            <span className="tag solved">Design Ally</span>
-            <span className="tag solved">Fast Responder</span>
-            <span className="tag solved">Top Mentor</span>
+          <h3 className="mb-2">Badges</h3>
+          <div className="d-flex gap-2 flex-wrap">
+            {user.badges?.length > 0 ? user.badges.map(b => <span key={b} className="tag tag-solved">{b}</span>) : <p>No badges earned</p>}
           </div>
         </div>
 
+        {/* Edit Profile */}
         <div className="card">
-          <p style={{ fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1rem', color: 'var(--primary)' }}>EDIT PROFILE</p>
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '1.5rem' }}>Update your identity</h2>
-          <form>
+          <span className="section-label">EDIT PROFILE</span>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Update your identity</h2>
+          <form onSubmit={handleSave}>
             <div className="grid-2">
               <div className="form-group">
                 <label>Name</label>
-                <input type="text" className="form-control" defaultValue={user.name} />
+                <input type="text" className="form-control" value={username} onChange={e => setUsername(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Location</label>
-                <input type="text" className="form-control" defaultValue={user.location} />
+                <input type="text" className="form-control" value={location} onChange={e => setLocation(e.target.value)} />
               </div>
             </div>
             <div className="form-group">
               <label>Skills</label>
-              <input type="text" className="form-control" defaultValue={user.skills} />
+              <input type="text" className="form-control" value={skills} onChange={e => setSkills(e.target.value)} />
             </div>
             <div className="form-group">
               <label>Interests</label>
-              <input type="text" className="form-control" defaultValue={user.interests} />
+              <input type="text" className="form-control" value={interests} onChange={e => setInterests(e.target.value)} />
             </div>
-            <button className="btn btn-primary w-full">Save profile</button>
+            <button type="submit" className="btn btn-primary w-full" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</button>
           </form>
+          <button className="btn btn-danger w-full mt-4" onClick={handleLogout}>Logout</button>
         </div>
       </div>
     </div>
