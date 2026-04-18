@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function RequestDetail() {
   const { id } = useParams();
@@ -9,25 +9,60 @@ export default function RequestDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/requests/${id}`).then(r => r.json()).then(d => { setReq(d); setLoading(false); }).catch(console.error);
+    const fetchReq = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (error) throw error;
+        setReq(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReq();
   }, [id]);
 
   const handleHelp = async () => {
     try {
-      const res = await fetch(`${API}/requests/${id}/help`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?._id, name: user?.username || 'Anonymous', skills: user?.skills?.join(', ') || 'General' }),
-      });
-      if (res.ok) { const data = await res.json(); setReq(data); }
-    } catch (e) { console.error(e); }
+      const newHelpers = [...(req.helpers || []), { 
+        userId: user?.id, 
+        name: user?.username || 'Anonymous', 
+        skills: user?.skills?.join(', ') || 'General' 
+      }];
+      
+      const { data, error } = await supabase
+        .from('requests')
+        .update({ helpers: newHelpers })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setReq(data);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSolve = async () => {
     try {
-      const res = await fetch(`${API}/requests/${id}/solve`, { method: 'PATCH' });
-      if (res.ok) { const data = await res.json(); setReq(data); }
-    } catch (e) { console.error(e); }
+      const { data, error } = await supabase
+        .from('requests')
+        .update({ status: 'Solved' })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setReq(data);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (loading) return <div className="text-center mt-6"><p>Loading...</p></div>;

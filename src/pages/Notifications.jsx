@@ -1,25 +1,57 @@
 import { useState, useEffect } from 'react';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Notifications() {
   const user = JSON.parse(localStorage.getItem('user'));
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (user?._id) {
-      fetch(`${API}/notifications/${user._id}`).then(r => r.json()).then(setNotifications).catch(console.error);
-    }
-  }, []);
+    const fetchNotifications = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          if (error) throw error;
+          setNotifications(data || []);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    fetchNotifications();
+  }, [user?.id]);
 
   const markRead = async (id) => {
-    await fetch(`${API}/notifications/${id}/read`, { method: 'PATCH' });
-    setNotifications(notifications.map(n => n._id === id ? { ...n, read: true } : n));
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const markAllRead = async () => {
-    if (!user?._id) return;
-    await fetch(`${API}/notifications/${user._id}/read-all`, { method: 'PATCH' });
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    if (!user?.id) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setNotifications(notifications.map(n => ({ ...n, read: true })));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -40,10 +72,10 @@ export default function Notifications() {
         <div>
           {notifications.length === 0 && <p className="text-center mt-4">No notifications yet.</p>}
           {notifications.map(n => (
-            <div key={n._id} className={`notif-row ${!n.read ? 'unread' : ''}`} onClick={() => markRead(n._id)} style={{ cursor: 'pointer' }}>
+            <div key={n.id} className={`notif-row ${!n.read ? 'unread' : ''}`} onClick={() => markRead(n.id)} style={{ cursor: 'pointer' }}>
               <div>
                 <p style={{ fontWeight: n.read ? 400 : 700, margin: 0, marginBottom: '0.2rem', color: 'var(--text)' }}>{n.text}</p>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.type} • {new Date(n.createdAt).toLocaleString()}</p>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.type} • {new Date(n.created_at).toLocaleString()}</p>
               </div>
               <span className={`tag ${n.read ? '' : 'tag-low'}`}>{n.read ? 'Read' : 'Unread'}</span>
             </div>

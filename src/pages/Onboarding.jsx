@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -14,38 +14,41 @@ export default function Onboarding() {
   if (!user) { navigate('/auth'); return null; }
 
   const getAiSuggestion = async () => {
-    try {
-      const res = await fetch(`${API}/users/ai-suggest`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skills: skills.split(',').map(s => s.trim()),
-          interests: interests.split(',').map(s => s.trim()),
-        }),
-      });
-      const data = await res.json();
-      setSuggestions(data);
-    } catch (e) { console.error(e); }
+    // Mock AI suggestion for now
+    setSuggestions({
+      canHelpWith: skills.split(',').map(s => s.trim()).filter(Boolean),
+      mayNeedHelp: interests.split(',').map(i => i.trim()).filter(Boolean)
+    });
   };
 
   const saveProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`${API}/users/${user._id}/onboard`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skills: skills.split(',').map(s => s.trim()),
-          interests: interests.split(',').map(s => s.trim()),
+      const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean);
+      const interestsArray = interests.split(',').map(s => s.trim()).filter(Boolean);
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          skills: skillsArray,
+          interests: interestsArray,
           location,
-        }),
-      });
-      const data = await res.json();
-      localStorage.setItem('user', JSON.stringify(data.user));
+          onboarded: true
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      localStorage.setItem('user', JSON.stringify({ ...user, ...data }));
       navigate('/dashboard');
       window.location.reload();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e);
+      alert(e.message);
+    }
     setLoading(false);
   };
 

@@ -1,40 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function Profile() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
-  if (!user) { navigate('/auth'); return null; }
 
-  const [username, setUsername] = useState(user.username || '');
-  const [skills, setSkills] = useState(user.skills?.join(', ') || '');
-  const [interests, setInterests] = useState(user.interests?.join(', ') || '');
-  const [location, setLocation] = useState(user.location || '');
+  const [username, setUsername] = useState(user?.username || '');
+  const [skills, setSkills] = useState(user?.skills?.join(', ') || '');
+  const [interests, setInterests] = useState(user?.interests?.join(', ') || '');
+  const [location, setLocation] = useState(user?.location || '');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/auth');
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`${API}/users/${user._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
           username,
-          skills: skills.split(',').map(s => s.trim()),
-          interests: interests.split(',').map(s => s.trim()),
+          skills: skills.split(',').map(s => s.trim()).filter(Boolean),
+          interests: interests.split(',').map(s => s.trim()).filter(Boolean),
           location,
-        }),
-      });
-      const data = await res.json();
-      localStorage.setItem('user', JSON.stringify(data.user));
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      localStorage.setItem('user', JSON.stringify({ ...user, ...data }));
       alert('Profile updated!');
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      alert(e.message);
+    }
     setSaving(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('user');
     navigate('/');
     window.location.reload();
@@ -56,10 +69,10 @@ export default function Profile() {
 
           <div className="d-flex justify-between" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
             <span>Trust score</span>
-            <span style={{ fontWeight: 700 }}>{user.trustScore || 50}%</span>
+            <span style={{ fontWeight: 700 }}>{user.trust_score || 50}%</span>
           </div>
           <div className="progress-bar mb-4">
-            <div className="progress-fill" style={{ width: `${user.trustScore || 50}%` }}></div>
+            <div className="progress-fill" style={{ width: `${user.trust_score || 50}%` }}></div>
           </div>
           <div className="d-flex justify-between mb-6" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
             <span>Contributions</span>
