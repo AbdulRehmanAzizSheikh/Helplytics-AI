@@ -30,18 +30,26 @@ function NavBar() {
         <Link to="/explore" className={isActive('/explore')}>Explore</Link>
         <Link to="/leaderboard" className={isActive('/leaderboard')}>Leaderboard</Link>
         <Link to="/ai-center" className={isActive('/ai-center')}>AI Center</Link>
+      </div>
+      <div className="d-flex align-center gap-4">
         {user ? (
           <>
-            <Link to="/dashboard" className={isActive('/dashboard')}>Dashboard</Link>
-            <Link to="/create-request" className={isActive('/create-request')}>Create Request</Link>
-            <Link to="/messages" className={isActive('/messages')}>Messages</Link>
-            <Link to="/notifications" className={isActive('/notifications')}>Notifications</Link>
+            <Link to="/notifications" className="btn btn-sm" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', fontWeight: 'bold' }}>
+              🔔 Notifications
+            </Link>
+            <Link to="/dashboard" className="btn btn-secondary btn-sm">Dashboard</Link>
+            <Link to="/create-request" className="btn btn-primary btn-sm">Post Request</Link>
             <Link to="/profile" className={isActive('/profile')}>
               <div className="nav-avatar">{user.username?.substring(0,2).toUpperCase() || 'U'}</div>
             </Link>
           </>
         ) : (
-          <Link to="/auth" className="btn btn-primary btn-sm">Join the platform</Link>
+          <>
+            <Link to="/notifications" className="btn btn-sm" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', fontWeight: 'bold' }}>
+              Live community signals
+            </Link>
+            <Link to="/auth" className="btn btn-primary btn-sm">Join the platform</Link>
+          </>
         )}
       </div>
     </nav>
