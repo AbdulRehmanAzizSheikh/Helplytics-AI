@@ -47,7 +47,12 @@ export default function Explore() {
         {/* Top Header Block */}
         <div
           className="panel"
-          style={{ marginBottom: "24px", background: "linear-gradient(140deg, rgba(20, 29, 32, 0.93), rgba(16, 26, 29, 0.88))", marginTop: "30px" }}
+          style={{
+            marginBottom: "24px",
+            background:
+              "linear-gradient(140deg, rgba(20, 29, 32, 0.93), rgba(16, 26, 29, 0.88))",
+            marginTop: "30px",
+          }}
         >
           <p
             className="eyebrow"
