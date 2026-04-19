@@ -43,7 +43,7 @@ export default function Explore() {
     <div className="site-shell fade-in">
       <main className="container">
         {/* Top Header Block */}
-        <div className="panel hero-dark" style={{ marginBottom: '24px' }}>
+        <div className="panel hero-panel" style={{ marginBottom: '24px' }}>
           <p className="eyebrow" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>EXPLORE / FEED</p>
           <h1 style={{ color: 'white', fontSize: 'clamp(2rem, 4vw, 3rem)', lineHeight: 1.15, marginBottom: '16px' }}>
             Browse help requests with filterable<br />community context.
