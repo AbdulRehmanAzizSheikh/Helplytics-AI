@@ -47,7 +47,7 @@ export default function Explore() {
         {/* Top Header Block */}
         <div
           className="panel hero-panel"
-          style={{ marginBottom: "24px", marginTop: "24px" }}
+          style={{ marginBottom: "24px", marginTop: "30px" }}
         >
           <p
             className="eyebrow"
