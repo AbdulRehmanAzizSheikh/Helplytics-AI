@@ -191,3 +191,16 @@ input:focus, select:focus, textarea:focus {
   h1 { font-size: 2.6rem; }
 }
 
+
+/* React Compatibility Utility Classes */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.sidebar-layout { display: grid; grid-template-columns: 260px 1fr; gap: 24px; }
+.d-flex { display: flex; }
+.flex-col { flex-direction: column; }
+.align-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.w-full { width: 100%; }
+@media (max-width: 980px) { .grid-3, .grid-2, .sidebar-layout { grid-template-columns: 1fr; } }
