@@ -57,9 +57,9 @@ function NavBar() {
 function App() {
   return (
     <Router>
-      <div className="container">
+      <div className="site-shell">
         <NavBar />
-        <main className="fade-in">
+        <main>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
